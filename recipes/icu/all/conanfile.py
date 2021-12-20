@@ -42,7 +42,7 @@ class ICUBase(ConanFile):
 
     @property
     def _is_msvc(self):
-        return self.settings.compiler == "Visual Studio"
+        return self.settings.compiler in ["Visual Studio", "msvc"]
 
     @property
     def _is_mingw(self):
@@ -79,6 +79,7 @@ class ICUBase(ConanFile):
     def _platform(self):
         return {
             ("Windows", "Visual Studio"): "Cygwin/MSVC",
+            ("Windows", "msvc"): "MSYS/MSVC",
             ("Windows", "gcc"): "MinGW",
             ("AIX", "gcc"): "AIX/GCC",
             ("AIX", "xlc"): "AIX",
@@ -120,7 +121,16 @@ class ICUBase(ConanFile):
         if self._is_msvc:
             run_configure_icu_file = os.path.join(self._source_subfolder, "source", "runConfigureICU")
 
-            flags = "-%s" % self.settings.compiler.runtime
+            if self.settings.compiler == "Visual Studio":
+                flags = "-%s" % self.settings.compiler.runtime
+            else:
+                if self.settings.compiler.runtime == "dynamic":
+                    flags = "-MD"
+                elif self.settings.compiler.runtime == "static":
+                    flags = "-MT"
+                if self.settings.compiler.runtime_type == "Debug":
+                    flags += "d"
+
             if self.settings.build_type in ["Debug", "RelWithDebInfo"] and tools.Version(self.settings.compiler.version) >= "12":
                 flags += " -FS"
             tools.replace_in_file(run_configure_icu_file, "-MDd", flags)
